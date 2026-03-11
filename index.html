@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omeros: The Undoing — Shared Quotation Organizer</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Cinzel:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --parchment: #f2ead8;
+    --aged: #e8dcc4;
+    --rust: #8b3a1a;
+    --gold: #c9913d;
+    --shadow: rgba(26, 18, 8, 0.18);
+    --blue-margin: #2a3f5c;
+    --annotation: #5c3a1a;
+    --tension-a: #7a1a2e;
+    --tension-b: #1a3a5c;
+    --tension-c: #2e5c1a;
+    --tension-d: #5c4a1a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #13100a;
+    color: var(--ink);
+    font-family: 'EB Garamond', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.06'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  header {
+    background: var(--ink);
+    padding: 2.5rem 2rem 1.8rem;
+    text-align: center;
+    border-bottom: 2px solid var(--gold);
+  }
+
+  header::after {
+    content: '— Book V —';
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    opacity: 0.7;
+    margin-top: 0.5rem;
+  }
+
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    color: var(--parchment);
+    letter-spacing: 0.08em;
+    font-weight: 400;
+  }
+
+  header .subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--gold);
+    font-size: 1.05rem;
+    margin-top: 0.4rem;
+    opacity: 0.85;
+  }
+
+  /* Config banner — shown until URL is set */
+  .config-banner {
+    background: #3a1a08;
+    border-bottom: 2px solid var(--rust);
+    padding: 0.9rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .config-banner p {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.9rem;
+    color: #f2c090;
+    flex: 1;
+  }
+
+  .config-banner code {
+    background: rgba(0,0,0,0.3);
+    padding: 0.1rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.82rem;
+    color: var(--gold);
+  }
+
+  .sync-bar {
+    background: #0e0c08;
+    padding: 0.45rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-bottom: 1px solid #2a2010;
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+  }
+
+  .sync-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #444;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .sync-dot.synced  { background: #4a9c3a; box-shadow: 0 0 6px #4a9c3a; }
+  .sync-dot.syncing { background: var(--gold); animation: pulse 1s infinite; }
+  .sync-dot.error   { background: #c04a3a; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .sync-text { color: #7a6a40; }
+
+  .refresh-btn {
+    margin-left: auto;
+    background: none;
+    border: 1px solid #3a2e18;
+    color: #7a6a40;
+    font-family: 'Cinzel', serif;
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    padding: 0.2rem 0.6rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  .refresh-btn:hover { color: var(--gold); border-color: var(--gold); }
+
+  .toolbar {
+    background: #1e180e;
+    border-bottom: 1px solid #3a2e18;
+    padding: 0.8rem 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .toolbar label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    opacity: 0.7;
+    margin-right: 0.3rem;
+  }
+
+  .filter-btn {
+    padding: 0.3rem 0.9rem;
+    border: 1px solid;
+    background: transparent;
+    font-family: 'EB Garamond', serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px;
+  }
+
+  .filter-btn.all { border-color: var(--gold); color: var(--gold); }
+  .filter-btn.all:hover, .filter-btn.all.active { background: var(--gold); color: var(--ink); }
+  .filter-btn[data-theme="authority"] { border-color: var(--tension-a); color: #c46a7a; }
+  .filter-btn[data-theme="authority"]:hover,
+  .filter-btn[data-theme="authority"].active { background: var(--tension-a); color: var(--parchment); }
+  .filter-btn[data-theme="memory"] { border-color: var(--tension-b); color: #6a8ab4; }
+  .filter-btn[data-theme="memory"]:hover,
+  .filter-btn[data-theme="memory"].active { background: var(--tension-b); color: var(--parchment); }
+  .filter-btn[data-theme="wound"] { border-color: var(--tension-c); color: #6a9c5a; }
+  .filter-btn[data-theme="wound"]:hover,
+  .filter-btn[data-theme="wound"].active { background: var(--tension-c); color: var(--parchment); }
+  .filter-btn[data-theme="naming"] { border-color: var(--tension-d); color: #b09040; }
+  .filter-btn[data-theme="naming"]:hover,
+  .filter-btn[data-theme="naming"].active { background: var(--tension-d); color: var(--parchment); }
+
+  .add-btn {
+    margin-left: auto;
+    padding: 0.35rem 1.1rem;
+    background: var(--rust);
+    border: none;
+    color: var(--parchment);
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-radius: 2px;
+  }
+  .add-btn:hover { background: #a04820; }
+
+  .main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  .pair-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .pair-card {
+    background: var(--parchment);
+    border-radius: 3px;
+    box-shadow: 0 4px 24px var(--shadow), 0 1px 4px rgba(0,0,0,0.3);
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+  .pair-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px var(--shadow), 0 2px 8px rgba(0,0,0,0.35);
+  }
+
+  .student-ribbon {
+    position: absolute;
+    top: 0; right: 0;
+    background: rgba(26,18,8,0.06);
+    padding: 0.2rem 0.7rem;
+    font-family: 'Cinzel', serif;
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    color: #9a7a50;
+    border-bottom-left-radius: 3px;
+  }
+
+  .pair-header {
+    padding: 0.8rem 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid rgba(26,18,8,0.12);
+  }
+
+  .tension-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    padding: 0.25rem 0.7rem;
+    border-radius: 2px;
+    text-transform: uppercase;
+    color: white;
+    flex-shrink: 0;
+  }
+  .tension-label.authority { background: var(--tension-a); }
+  .tension-label.memory    { background: var(--tension-b); }
+  .tension-label.wound     { background: var(--tension-c); }
+  .tension-label.naming    { background: var(--tension-d); }
+
+  .pair-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--annotation);
+    flex: 1;
+  }
+
+  .pair-actions { display: flex; gap: 0.4rem; }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9a8060;
+    font-size: 0.9rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 2px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .icon-btn:hover { color: var(--rust); background: rgba(139,58,26,0.08); }
+
+  .quotes-row {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr;
+  }
+
+  .quote-block { padding: 1.4rem 1.6rem 1.2rem; }
+
+  .quote-block.earlier {
+    border-right: 1px dashed rgba(26,18,8,0.15);
+    background: var(--parchment);
+  }
+
+  .quote-block.book5 { background: var(--aged); }
+
+  .quote-block-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    color: var(--blue-margin);
+    opacity: 0.6;
+    margin-bottom: 0.6rem;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .quote-book5-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    color: var(--rust);
+    opacity: 0.7;
+    margin-bottom: 0.6rem;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .quote-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.05rem;
+    line-height: 1.65;
+    color: var(--ink);
+    font-style: italic;
+    border-left: 2px solid rgba(26,18,8,0.15);
+    padding-left: 0.9rem;
+  }
+
+  .quote-book5 .quote-text { border-left-color: var(--rust); }
+
+  .connector-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(to bottom, var(--parchment), var(--aged));
+  }
+
+  .connector-symbol {
+    font-family: 'Cinzel', serif;
+    font-size: 1.3rem;
+    color: var(--rust);
+    opacity: 0.5;
+    writing-mode: vertical-rl;
+  }
+
+  .analysis-row {
+    border-top: 1px solid rgba(26,18,8,0.1);
+    padding: 1rem 1.6rem;
+    background: rgba(26,18,8,0.03);
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .analysis-icon { font-size: 0.9rem; color: var(--annotation); opacity: 0.5; flex-shrink: 0; margin-top: 0.1rem; }
+
+  .analysis-text {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--annotation);
+    font-style: italic;
+  }
+
+  .count-badge {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: #9a8060;
+    margin-left: auto;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid rgba(154,128,96,0.3);
+    border-radius: 2px;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, #2a2010 25%, #3a3018 50%, #2a2010 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 3px;
+    height: 140px;
+  }
+  @keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(13,10,6,0.85);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--parchment);
+    max-width: 760px;
+    width: 92%;
+    border-radius: 4px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    max-height: 92vh;
+    overflow-y: auto;
+    animation: modalIn 0.25s ease;
+  }
+  @keyframes modalIn { from{transform:translateY(20px);opacity:0} to{transform:none;opacity:1} }
+
+  .modal-header {
+    background: var(--ink);
+    padding: 1rem 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .modal-header h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    font-weight: 400;
+  }
+
+  .modal-close {
+    background: none; border: none;
+    color: var(--parchment);
+    cursor: pointer; font-size: 1.1rem;
+    opacity: 0.6; transition: opacity 0.15s;
+  }
+  .modal-close:hover { opacity: 1; }
+
+  .modal-body {
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .name-field-wrap {
+    background: rgba(201,145,61,0.08);
+    border: 1px solid rgba(201,145,61,0.25);
+    border-radius: 3px;
+    padding: 0.8rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .name-field-wrap label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+  }
+
+  .name-field-wrap input {
+    font-family: 'EB Garamond', serif;
+    font-size: 1rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid rgba(201,145,61,0.3);
+    background: white;
+    color: var(--ink);
+    border-radius: 2px;
+  }
+  .name-field-wrap input:focus { outline: none; border-color: var(--gold); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+  .form-group label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--annotation);
+    opacity: 0.7;
+  }
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.95rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid rgba(26,18,8,0.2);
+    background: white;
+    color: var(--ink);
+    border-radius: 2px;
+    resize: vertical;
+  }
+
+  .form-group input:focus,
+  .form-group textarea:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: var(--rust);
+    box-shadow: 0 0 0 2px rgba(139,58,26,0.1);
+  }
+
+  .modal-footer {
+    padding: 1rem 1.4rem;
+    border-top: 1px solid rgba(26,18,8,0.1);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    position: sticky;
+    bottom: 0;
+    background: var(--parchment);
+  }
+
+  .btn-cancel {
+    padding: 0.45rem 1.1rem;
+    background: none;
+    border: 1px solid rgba(26,18,8,0.2);
+    font-family: 'EB Garamond', serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: var(--annotation);
+    border-radius: 2px;
+  }
+
+  .btn-save {
+    padding: 0.45rem 1.3rem;
+    background: var(--rust);
+    border: none;
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--parchment);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.15s;
+  }
+  .btn-save:hover { background: #a04820; }
+  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #7a6a50;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 1.1rem;
+  }
+
+  .export-bar {
+    margin-top: 2.5rem;
+    padding: 1rem 1.4rem;
+    background: #1e180e;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .export-bar span {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    opacity: 0.6;
+  }
+
+  .export-btn {
+    padding: 0.35rem 1rem;
+    background: none;
+    border: 1px solid rgba(201,145,61,0.4);
+    color: #c9913d;
+    font-family: 'EB Garamond', serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  .export-btn:hover { background: rgba(201,145,61,0.1); border-color: var(--gold); }
+
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    padding: 0.6rem 1.4rem;
+    border-radius: 3px;
+    border: 1px solid rgba(201,145,61,0.3);
+    opacity: 0;
+    transition: all 0.25s;
+    z-index: 900;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 700px) {
+    .quotes-row { grid-template-columns: 1fr; }
+    .connector-col { display: none; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Omeros: The Undoing</h1>
+  <p class="subtitle">Walcott against Walcott — a shared record of the epic's self-destruction</p>
+</header>
+
+<!-- This banner shows only if the script URL hasn't been set -->
+<div class="config-banner" id="config-banner" style="display:none;">
+  <p>⚠ <strong>Setup required:</strong> Open <code>index.html</code>, find <code>https://script.google.com/macros/s/AKfycbz1_jgCLz_4Bzz1DhiXBMNwyZP_wWcm48H56eYLeUQ6bpXriB190TDxOsg_8-Lr8QV_2A/exec</code> near the top of the &lt;script&gt; section, and replace it with your Google Apps Script Web App URL.</p>
+</div>
+
+<div class="sync-bar">
+  <div class="sync-dot" id="sync-dot"></div>
+  <span class="sync-text" id="sync-text">Connecting…</span>
+  <button class="refresh-btn" onclick="loadPairs()">↻ REFRESH</button>
+</div>
+
+<div class="toolbar">
+  <label>FILTER:</label>
+  <button class="filter-btn all active" onclick="filterPairs('all', this)">All</button>
+  <button class="filter-btn" data-theme="authority" onclick="filterPairs('authority', this)">Authority &amp; Voice</button>
+  <button class="filter-btn" data-theme="memory"    onclick="filterPairs('memory', this)">Memory &amp; History</button>
+  <button class="filter-btn" data-theme="wound"     onclick="filterPairs('wound', this)">The Wound</button>
+  <button class="filter-btn" data-theme="naming"    onclick="filterPairs('naming', this)">Naming &amp; Homer</button>
+  <span id="pair-count" class="count-badge">— PAIRS</span>
+  <button class="add-btn" onclick="openModal()">+ ADD PAIR</button>
+</div>
+
+<div class="main">
+  <div class="pair-grid" id="pair-grid">
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+  </div>
+  <div id="empty-state" class="empty-state" style="display:none;">
+    No pairs yet in this category.
+  </div>
+
+  <div class="export-bar">
+    <span>EXPORT:</span>
+    <button class="export-btn" onclick="exportMarkdown()">Markdown</button>
+    <button class="export-btn" onclick="exportJSON()">JSON</button>
+    <button class="export-btn" onclick="window.print()">Print / PDF</button>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>ADD QUOTATION PAIR</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="name-field-wrap">
+        <label>YOUR NAME (will appear on the card)</label>
+        <input type="text" id="f-name" placeholder="First name or initials">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>TENSION TITLE</label>
+          <input type="text" id="f-title" placeholder="e.g., The poet disclaims his own instrument">
+        </div>
+        <div class="form-group">
+          <label>THEME CATEGORY</label>
+          <select id="f-theme">
+            <option value="authority">Authority &amp; Voice</option>
+            <option value="memory">Memory &amp; History</option>
+            <option value="wound">The Wound</option>
+            <option value="naming">Naming &amp; Homer</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>EARLIER PASSAGE — QUOTATION</label>
+          <textarea id="f-early-quote" rows="4" placeholder="Earlier text that establishes a claim…"></textarea>
+        </div>
+        <div class="form-group">
+          <label>BOOK V — UNDOING QUOTATION</label>
+          <textarea id="f-v-quote" rows="4" placeholder="Book V passage that dismantles it…"></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>EARLIER CITATION (Book, Ch., p.)</label>
+          <input type="text" id="f-early-cite" placeholder="e.g., Book I, Ch. 1, p. 7">
+        </div>
+        <div class="form-group">
+          <label>BOOK V CITATION</label>
+          <input type="text" id="f-v-cite" placeholder="e.g., Book V, Ch. 37, p. 189">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ANALYTICAL NOTE (optional)</label>
+        <textarea id="f-analysis" rows="3" placeholder="How does Book V undo what came before?"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="save-btn" onclick="savePair()">SAVE TO SHARED RECORD</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIGURATION — paste your Apps Script Web App URL below
+// ============================================================
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1_jgCLz_4Bzz1DhiXBMNwyZP_wWcm48H56eYLeUQ6bpXriB190TDxOsg_8-Lr8QV_2A/exec';
+// ============================================================
+
+const themeNames = {
+  authority: 'Authority & Voice',
+  memory:    'Memory & History',
+  wound:     'The Wound',
+  naming:    'Naming & Homer'
+};
+
+let pairs = [];
+let currentFilter = 'all';
+
+// ── SYNC STATUS ───────────────────────────────────────────────────────────────
+function setSyncState(state, msg) {
+  document.getElementById('sync-dot').className = 'sync-dot ' + state;
+  document.getElementById('sync-text').textContent = msg;
+}
+
+// ── API CALLS ─────────────────────────────────────────────────────────────────
+async function apiFetch(params) {
+  const url = APPS_SCRIPT_URL + '?nocache=' + Date.now();
+  const res = await fetch(url + '&' + new URLSearchParams(params));
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function apiPost(body) {
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+// ── LOAD ──────────────────────────────────────────────────────────────────────
+async function loadPairs() {
+  if (APPS_SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbz1_jgCLz_4Bzz1DhiXBMNwyZP_wWcm48H56eYLeUQ6bpXriB190TDxOsg_8-Lr8QV_2A/exec') {
+    document.getElementById('config-banner').style.display = 'flex';
+    setSyncState('error', 'Apps Script URL not configured — see setup banner above');
+    document.getElementById('pair-grid').innerHTML = '';
+    return;
+  }
+
+  setSyncState('syncing', 'Loading from Google Sheets…');
+  document.getElementById('pair-grid').innerHTML =
+    '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+
+  try {
+    const data = await apiFetch({ action: 'list' });
+    pairs = data.pairs || [];
+    setSyncState('synced', `Live — ${pairs.length} pair${pairs.length !== 1 ? 's' : ''} in shared record`);
+    renderPairs();
+  } catch (e) {
+    setSyncState('error', 'Could not reach Google Sheets — check your URL');
+    document.getElementById('pair-grid').innerHTML = '';
+    showToast('Connection failed. Check the Apps Script URL.');
+  }
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderPairs() {
+  const grid  = document.getElementById('pair-grid');
+  const empty = document.getElementById('empty-state');
+  grid.innerHTML = '';
+
+  const filtered = currentFilter === 'all'
+    ? pairs
+    : pairs.filter(p => p.theme === currentFilter);
+
+  document.getElementById('pair-count').textContent =
+    `${filtered.length} PAIR${filtered.length !== 1 ? 'S' : ''}`;
+
+  if (filtered.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  filtered.forEach(pair => {
+    const card = document.createElement('div');
+    card.className = 'pair-card';
+
+    const isSeeded   = pair.author === 'Seeded';
+    const ribbon     = isSeeded ? '' : `<div class="student-ribbon">${esc(pair.author || 'Anonymous')}</div>`;
+    const deleteBtn  = isSeeded ? '' : `<button class="icon-btn" title="Delete" onclick="deletePair('${pair.id}')">✕</button>`;
+
+    card.innerHTML = `
+      ${ribbon}
+      <div class="pair-header">
+        <span class="tension-label ${pair.theme}">${themeNames[pair.theme]}</span>
+        <span class="pair-title">${esc(pair.title)}</span>
+        <div class="pair-actions">${deleteBtn}</div>
+      </div>
+      <div class="quotes-row">
+        <div class="quote-block earlier">
+          <div class="quote-block-label">
+            <span>EARLIER TEXT</span><span>${esc(pair.earlyCite||'')}</span>
+          </div>
+          <div class="quote-text">"${esc(pair.earlyQuote)}"</div>
+        </div>
+        <div class="connector-col"><span class="connector-symbol">→⟵</span></div>
+        <div class="quote-block book5 quote-book5">
+          <div class="quote-book5-label">
+            <span>BOOK V UNDOING</span><span>${esc(pair.v5Cite||'')}</span>
+          </div>
+          <div class="quote-text">"${esc(pair.v5Quote)}"</div>
+        </div>
+      </div>
+      ${pair.analysis ? `
+      <div class="analysis-row">
+        <span class="analysis-icon">✦</span>
+        <div class="analysis-text">${esc(pair.analysis)}</div>
+      </div>` : ''}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────────
+function filterPairs(theme, btn) {
+  currentFilter = theme;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPairs();
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('f-name').focus();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+async function savePair() {
+  const title      = document.getElementById('f-title').value.trim();
+  const earlyQuote = document.getElementById('f-early-quote').value.trim();
+  const v5Quote    = document.getElementById('f-v-quote').value.trim();
+  const author     = document.getElementById('f-name').value.trim() || 'Anonymous';
+
+  if (!title || !earlyQuote || !v5Quote) {
+    showToast('Please fill in the title and both quotations.');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = 'SAVING…';
+
+  try {
+    const result = await apiPost({
+      action: 'add',
+      pair: {
+        theme:      document.getElementById('f-theme').value,
+        title,
+        earlyQuote,
+        earlyCite:  document.getElementById('f-early-cite').value.trim(),
+        v5Quote,
+        v5Cite:     document.getElementById('f-v-cite').value.trim(),
+        analysis:   document.getElementById('f-analysis').value.trim(),
+        author
+      }
+    });
+
+    if (result.error) throw new Error(result.error);
+
+    closeModal();
+    clearForm();
+    showToast(`Pair saved — ${author}`);
+    await loadPairs();
+  } catch (e) {
+    showToast('Save failed: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'SAVE TO SHARED RECORD';
+}
+
+function clearForm() {
+  ['f-name','f-title','f-early-quote','f-early-cite','f-v-quote','f-v-cite','f-analysis']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-theme').value = 'authority';
+}
+
+async function deletePair(id) {
+  if (!confirm('Remove this pair from the shared record?')) return;
+  setSyncState('syncing', 'Deleting…');
+  try {
+    await apiPost({ action: 'delete', id });
+    showToast('Pair removed');
+    await loadPairs();
+  } catch (e) {
+    showToast('Delete failed: ' + e.message);
+    setSyncState('error', 'Delete failed');
+  }
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+function exportMarkdown() {
+  let md = '# Omeros: The Undoing\n## Shared Quotation Pairs\n\n';
+  pairs.forEach((p, i) => {
+    md += `### ${i+1}. ${p.title}\n`;
+    md += `**Category:** ${themeNames[p.theme]}`;
+    if (p.author && p.author !== 'Seeded') md += ` | **By:** ${p.author}`;
+    md += '\n\n';
+    md += `**Earlier Text** (${p.earlyCite}):\n> "${p.earlyQuote}"\n\n`;
+    md += `**Book V Undoing** (${p.v5Cite}):\n> "${p.v5Quote}"\n\n`;
+    if (p.analysis) md += `**Note:** ${p.analysis}\n\n`;
+    md += '---\n\n';
+  });
+  dlFile('omeros-undoing.md', md, 'text/markdown');
+}
+
+function exportJSON() {
+  dlFile('omeros-undoing.json', JSON.stringify(pairs, null, 2), 'application/json');
+}
+
+function dlFile(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = name;
+  a.click();
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+loadPairs();
+</script>
+</body>
+</html>
